@@ -51,6 +51,12 @@ def get_doi_link(entry):
         return f"https://doi.org/{doi}", doi
     return None, None
 
+def get_ads_link(entry):
+    adsurl = entry.get("adsurl")
+    if adsurl:
+        return adsurl.strip()
+    return None
+
 def normalize_journal(name):
     if not name:
         return ""
@@ -150,15 +156,21 @@ def generate_html_by_year(file_path, entry_filter="all"):
             venue = escape(format_venue(entry))
             arxiv_url, arxiv_text = get_arxiv_link(entry)
             doi_url, doi_text = get_doi_link(entry)
+            ads_url = get_ads_link(entry)
 
             item = f"<li><b>{title}</b><br>"
             item += f"{authors}<br>"
-            item += f"<em>{venue}</em>"
+            if venue:
+                item += f"<em>{venue}</em>"
             if doi_url:
-                item += f'<br />DOI: <a href="{escape(doi_url)}">{escape(doi_text)}</a>'
+                item += f'; DOI: <a href="{escape(doi_url)}">{escape(doi_text)}</a>'
             if arxiv_url:
-                item += f'<br />arXiv: <a href="{escape(arxiv_url)}">{escape(arxiv_text)}</a>'
-
+                item += f'; arXiv: <a href="{escape(arxiv_url)}">{escape(arxiv_text)}</a>'
+            if ads_url:
+                if venue:
+                    item += f'; <a href="{escape(ads_url)}">NASA ADS</a>'
+                else:
+                    item += f'<a href="{escape(ads_url)}">NASA ADS</a>'
             item += "</li>"
 
             html_parts.append(item)
@@ -170,11 +182,12 @@ def generate_html_by_year(file_path, entry_filter="all"):
 
 # Example usage
 if __name__ == "__main__":
-    output = '<h1>Papers</h1>'
+    output = '<div style="margin-left:50px;">\n<h1>Papers</h1>'
     output += generate_html_by_year("publications.bib",entry_filter='papers')
     output += '<h1>Proceedings</h1>'
     output += generate_html_by_year("publications.bib",entry_filter='conferences')
     output += '<h1>Theses</h1>'
     output += generate_html_by_year("publications.bib",entry_filter='theses')
+    output += '</div>'
     print(output)
 
