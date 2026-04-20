@@ -1,6 +1,10 @@
+# Load publications from publications.bib and reformat for the website
+# Source for publications.bib: https://ui.adsabs.harvard.edu/public-libraries/Y_OJ9IxWTw6JWN26zpG93A
+
 import bibtexparser
 from html import escape
 from collections import defaultdict
+from pylatexenc.latex2text import LatexNodes2Text
 
 JOURNAL_MAP = {
     r"\ao": "Applied Optics",
@@ -15,19 +19,33 @@ JOURNAL_MAP = {
     r"\jcap": "Journal of Cosmology and Astroparticle Physics",
 }
 
+AUTHOR_ATTRIB_MAP = {
+    r"The Simons Observatory: Science Goals and Forecasts for the Enhanced Large Aperture Telescope": "https://simonsobservatory.org/wp-content/uploads/2025/03/Author-contribution-statement-20250228.pdf",
+}
+
 def strip_braces(text):
     if not text:
         return text
     return text.replace("{", "").replace("}", "")
 
 
+# def format_authors(author_field):
+#     if not author_field:
+#         return "Unknown authors"
+#     authors = [strip_braces(a.strip()) for a in author_field.split(" and ")]
+#     return ", ".join(authors).replace('~',' ')
+
 def format_authors(author_field):
     if not author_field:
         return "Unknown authors"
-    authors = [strip_braces(a.strip()) for a in author_field.split(" and ")]
-    return ", ".join(authors).replace('~',' ')
-
-
+    
+    converter = LatexNodes2Text()
+    authors = [
+        converter.latex_to_text(a.strip())
+        for a in author_field.split(" and ")
+    ]
+    
+    return ", ".join(authors).replace('~', ' ')
 def get_arxiv_link(entry):
     eprint = entry.get("eprint")
     if eprint:
@@ -71,6 +89,21 @@ def normalize_journal(name):
         return lower_map[key]
 
     return name
+
+def check_author_attribution(article_title):
+    if not article_title:
+        return ""
+
+    article_title = strip_braces(article_title).strip()
+
+    # Match case-insensitively
+    lower_map = {k.lower(): v for k, v in AUTHOR_ATTRIB_MAP.items()}
+
+    key = article_title.lower()
+    if key in lower_map:
+        return lower_map[key]
+
+    return ""
 
 def format_venue(entry):
     journal = normalize_journal(entry.get("journal", ""))
@@ -157,6 +190,7 @@ def generate_html_by_year(file_path, entry_filter="all"):
             arxiv_url, arxiv_text = get_arxiv_link(entry)
             doi_url, doi_text = get_doi_link(entry)
             ads_url = get_ads_link(entry)
+            author_attrib = check_author_attribution(title)
 
             item = f"<li><b>{title}</b><br>"
             item += f"{authors}<br>"
@@ -171,6 +205,8 @@ def generate_html_by_year(file_path, entry_filter="all"):
                     item += f'; <a href="{escape(ads_url)}">NASA ADS</a>'
                 else:
                     item += f'<a href="{escape(ads_url)}">NASA ADS</a>'
+            if author_attrib:
+                item += f'<br /><a href="{escape(author_attrib)}">Author Contribution Statement</a>'
             item += "</li>"
 
             html_parts.append(item)
@@ -179,15 +215,25 @@ def generate_html_by_year(file_path, entry_filter="all"):
 
     return "\n".join(html_parts)
 
-
-# Example usage
 if __name__ == "__main__":
-    output = '<div style="margin-left:50px;">\n<h1>Papers</h1>'
+    # Papers
+    output = '<div style="margin-left:50px;">\n'
     output += generate_html_by_year("publications.bib",entry_filter='papers')
-    output += '<h1>Proceedings</h1>'
+    output += '</div>'
+    with open("papers.html", "w", encoding="utf-8") as f:
+        f.write(output)
+
+    # Publications
+    output = '<div style="margin-left:50px;">\n'
     output += generate_html_by_year("publications.bib",entry_filter='conferences')
-    output += '<h1>Theses</h1>'
+    output += '</div>'
+    with open("proceedings.html", "w", encoding="utf-8") as f:
+        f.write(output)
+
+    # Theses
+    output = '<div style="margin-left:50px;">\n'
     output += generate_html_by_year("publications.bib",entry_filter='theses')
     output += '</div>'
-    print(output)
+    with open("theses.html", "w", encoding="utf-8") as f:
+        f.write(output)
 
